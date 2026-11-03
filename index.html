@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172b4d">
+<title>Mi descanso</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5fa;color:#172b4d;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+header{background:#172b4d;color:white;padding:26px 20px}
+main{max-width:600px;margin:auto;padding:16px}
+section{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 10px #172b4d12}
+h1{margin:0;font-size:27px}
+h2{font-size:19px;margin-top:0}
+label{display:block;margin:15px 0 6px;font-weight:600}
+input,select,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;background:white;color:#172b4d}
+input[type=range]{padding:0}
+button{border:0;border-radius:10px;padding:13px 18px;font-size:16px;font-weight:600;background:#2463eb;color:white;width:100%;margin-top:12px}
+small,.muted{color:#64748b}
+.item{border-top:1px solid #e2e8f0;padding:12px 0}
+.value{font-size:24px;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+<h1>🌙 Mi descanso</h1>
+<p>Control de sueño, energía y entrenamiento</p>
+</header>
+<main>
+<section>
+<h2>Registrar mi día</h2>
+<label>Fecha</label>
+<input type="date" id="fecha">
+<label>Hora de acostarme</label>
+<input type="time" id="dormir" value="21:30">
+<label>Hora de despertarme</label>
+<input type="time" id="despertar" value="04:00">
+<p>Tiempo entre acostarte y despertar:</p>
+<div class="value" id="duracion">6 h 30 min</div>
+<small>Es el tiempo en cama, no necesariamente el sueño real.</small>
+<label>Somnolencia durante el día: <span id="svalor">5</span>/10</label>
+<input type="range" id="sueno" min="0" max="10" value="5">
+<label>Energía: <span id="evalor">5</span>/10</label>
+<input type="range" id="energia" min="0" max="10" value="5">
+<label>Entrenamiento</label>
+<select id="entreno">
+<option value="Descanso">Descanso</option>
+<option value="Fuerza">Fuerza</option>
+<option value="Hipertrofia">Hipertrofia</option>
+<option value="AMRAP">AMRAP</option>
+<option value="Cardio">Cardio</option>
+<option value="Otro">Otro</option>
+</select>
+<label>Notas o dictado por voz 🎙️</label>
+<textarea id="notas" rows="3" placeholder="Toca aquí y utiliza el micrófono del teclado del iPhone para dictar..."></textarea>
+<button onclick="guardar()">Guardar registro</button>
+<p id="mensaje" role="status"></p>
+</section>
+<section>
+<h2>Mi historial</h2>
+<div id="historial"></div>
+<button onclick="exportar()">Exportar copia de seguridad</button>
+</section>
+<section>
+<h2>Consejo de seguridad</h2>
+<p>Si tienes mucha somnolencia, evita conducir la moto. Si persiste pese a dormir suficiente, consulta a un profesional sanitario.</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function fechaLocal(){
+const d=new Date();
+return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+}
+$("fecha").value=fechaLocal();
+function minutos(t){
+const [h,m]=t.split(":").map(Number);
+return h*60+m;
+}
+function actualizar(){
+let a=minutos($("dormir").value);
+let b=minutos($("despertar").value);
+let n=(b-a+1440)%1440;
+$("duracion").textContent=Math.floor(n/60)+" h "+n%60+" min";
+$("svalor").textContent=$("sueno").value;
+$("evalor").textContent=$("energia").value;
+}
+["dormir","despertar","sueno","energia"].forEach(id=>$(id).addEventListener("input",actualizar));
+function leer(){
+try{return JSON.parse(localStorage.getItem("miDescansoRegistros")||"[]")}catch{return []}
+}
+function guardar(){
+const registro={
+fecha:$("fecha").value,
+dormir:$("dormir").value,
+despertar:$("despertar").value,
+somnolencia:Number($("sueno").value),
+energia:Number($("energia").value),
+entreno:$("entreno").value,
+notas:$("notas").value
+};
+if(!registro.fecha||!registro.dormir||!registro.despertar){
+$("mensaje").textContent="Completa la fecha y las horas.";
+return;
+}
+let datos=leer().filter(x=>x.fecha!==registro.fecha);
+datos.push(registro);
+datos.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+try{
+localStorage.setItem("miDescansoRegistros",JSON.stringify(datos));
+$("mensaje").textContent="Registro guardado correctamente.";
+mostrar();
+}catch{
+$("mensaje").textContent="No se pudo guardar. Comprueba el almacenamiento de Safari.";
+}
+}
+function mostrar(){
+const zona=$("historial");
+zona.replaceChildren();
+const datos=leer();
+if(!datos.length){
+zona.textContent="Todavía no tienes registros.";
+return;
+}
+datos.forEach(r=>{
+const div=document.createElement("div");
+div.className="item";
+const titulo=document.createElement("strong");
+titulo.textContent=r.fecha+" · "+r.entreno;
+const detalle=document.createElement("p");
+detalle.textContent=r.dormir+"–"+r.despertar+" · Sueño: "+r.somnolencia+"/10 · Energía: "+r.energia+"/10";
+div.append(titulo,detalle);
+if(r.notas){
+const nota=document.createElement("p");
+nota.textContent=r.notas;
+div.append(nota);
+}
+zona.append(div);
+});
+}
+function exportar(){
+const blob=new Blob([JSON.stringify(leer(),null,2)],{type:"application/json"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;
+a.download="mi-descanso-registros.json";
+a.click();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+actualizar();
+mostrar();
+</script>
+</body>
+</html>
